@@ -1,0 +1,45 @@
+JMeter Aggregate Report — Release Comparison
+============================================================
+Release 1.3 (Baseline) vs Release 1.4 (New)
+Test Duration: 300s | Threads: 50 | Ramp-up: 60s
+Environment: staging-perf | Date: 2024-03-15
+
+=== RELEASE 1.3 (BASELINE) ===
+Label,# Samples,Average,Median,90% Line,95% Line,99% Line,Min,Max,Error %,Throughput,Received KB/sec,Sent KB/sec
+GET /api/orders,5000,284,241,480,620,980,42,2840,0.24%,48.2,420.4,12.1
+GET /api/orders/{id},5000,142,128,220,290,480,18,1240,0.06%,96.4,184.2,18.4
+POST /api/orders,5000,820,740,1240,1580,2480,180,4200,0.42%,12.4,48.2,84.1
+GET /api/products,5000,184,162,280,360,580,24,1420,0.08%,72.8,840.4,14.2
+GET /api/products/{id},5000,98,88,152,194,320,12,840,0.02%,142.4,284.1,8.4
+GET /api/users/{id},5000,124,112,192,244,396,16,920,0.04%,112.8,142.4,10.2
+POST /api/auth/login,5000,284,252,440,560,920,48,2100,0.18%,48.4,18.4,24.1
+GET /api/cart,5000,164,148,248,318,524,22,1240,0.12%,84.2,184.2,12.4
+POST /api/cart/items,5000,420,382,640,820,1320,84,2840,0.28%,24.2,48.4,42.1
+GET /api/checkout/summary,5000,342,308,524,668,1080,48,2100,0.16%,48.8,284.4,18.2
+POST /api/checkout,5000,1280,1148,1940,2480,3920,284,6200,0.52%,8.4,28.2,124.4
+GET /api/search,5000,524,472,840,1080,1740,84,3840,0.22%,28.4,420.8,48.2
+TOTAL,60000,305,268,480,620,1020,12,6200,0.20%,48.2,246.4,28.4
+
+=== RELEASE 1.4 (NEW — UNDER TEST) ===
+Label,# Samples,Average,Median,90% Line,95% Line,99% Line,Min,Max,Error %,Throughput,Received KB/sec,Sent KB/sec
+GET /api/orders,5000,298,254,508,652,1020,44,2980,0.26%,46.8,412.4,11.8
+GET /api/orders/{id},5000,148,134,228,296,492,20,1280,0.08%,94.2,180.4,18.1
+POST /api/orders,5000,1840,1648,2820,3540,5480,192,9400,2.84%,8.2,32.1,78.4
+GET /api/products,5000,186,164,284,364,588,24,1480,0.08%,72.2,836.2,14.0
+GET /api/products/{id},5000,96,86,150,192,318,12,820,0.02%,144.2,286.4,8.6
+GET /api/users/{id},5000,128,114,196,248,402,16,940,0.04%,110.8,140.2,10.0
+POST /api/auth/login,5000,288,256,444,566,928,50,2140,0.20%,47.8,18.2,23.8
+GET /api/cart,5000,162,146,246,316,520,22,1220,0.10%,84.8,185.2,12.6
+POST /api/cart/items,5000,428,388,648,832,1340,86,2880,0.30%,23.8,47.6,41.8
+GET /api/checkout/summary,5000,1124,1008,1720,2180,3480,156,7200,1.42%,28.4,192.8,18.0
+POST /api/checkout,5000,1320,1184,1980,2540,4020,288,6480,0.56%,8.2,27.8,122.8
+GET /api/search,5000,548,492,876,1124,1820,88,4020,0.24%,27.8,414.4,47.6
+TOTAL,60000,465,402,820,1080,1980,12,9400,0.56%,39.8,222.4,27.2
+
+============================================================
+COMPARISON NOTES:
+- Same test plan, same thread count (50), same ramp-up (60s)
+- Same staging environment, same DB snapshot
+- Release 1.4 includes: new order processing workflow, checkout redesign, search indexing upgrade
+- Component owners: Orders=Backend/Order Team, Auth=Backend/Auth Team, 
+  Products=Backend/Catalog Team, Cart/Checkout=Backend/Commerce Team, Search=Search Team

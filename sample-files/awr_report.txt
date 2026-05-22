@@ -1,0 +1,63 @@
+AWR Report — DB Name: ORCL  Instance: orcl1  Oracle 19.3.0.0.0
+Snap Id: 12840 (Begin) → 12844 (End)   Elapsed: 60.12 min   Sessions: 142
+
+LOAD PROFILE
+~~~~~~~~~~~~
+Redo size (bytes/sec):          14,823,910
+Logical reads (per sec):           284,203
+Block changes (per sec):            18,442
+Hard parses (per sec):               182.4   << HIGH
+Soft parses (per sec):             1,820.3
+Executes (per sec):                2,104.1
+User calls (per sec):                941.2
+
+INSTANCE EFFICIENCY
+~~~~~~~~~~~~~~~~~~~
+Buffer Hit %:                        91.4%   << BELOW 95% threshold
+Library Hit %:                       94.2%   << BELOW 95% threshold
+Execute to Parse %:                  67.1%   << BELOW 80% threshold
+Latch Hit %:                         98.91%
+Parse CPU to Parse Elapsed %:        41.2%   << LOW — latch contention during parse
+
+TOP 10 FOREGROUND EVENTS
+~~~~~~~~~~~~~~~~~~~~~~~~~
+Event                           Waits     Time(s)   Avg wait(ms)   % DB time
+db file sequential read       847,293    3,841.2        4.53           38.4%   << CRITICAL
+db file scattered read        142,841      892.4        6.25            8.9%
+log file sync                  48,203      720.1       14.94            7.2%   << HIGH — redo latency
+library cache lock             12,840      580.2       45.18            5.8%
+cursor: pin S wait on X        28,492      420.8       14.77            4.2%
+buffer busy waits              18,293      310.4       16.97            3.1%
+enq: TX - row lock contention   4,820      284.2       58.97            2.8%
+CPU time                            -    1,920.4            -           19.2%
+SQL*Net message from client         -      824.1            -            8.2%
+direct path read               22,840      180.2        7.89            1.8%
+
+SQL ORDERED BY ELAPSED TIME (Top 5)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+SQL Id          Elapsed (s)   CPU (s)   Executions   Elapsed/Exec   Buffer Gets   Physical Reads   SQL Text
+a1b2c3d4e5f6g    4,820.4     820.2           1          4,820s       48,293,000      12,840,000    SELECT * FROM orders o, customers c, products p WHERE o.product_id=p.product_id AND TRUNC(o.order_date) > :d
+b2c3d4e5f6g7h    1,284.2     420.1       4,820            0.26s          284,200             0    SELECT customer_id, COUNT(*) FROM orders WHERE status='OPEN' GROUP BY customer_id  
+c3d4e5f6g7h8i      920.4     180.2           1            920s        9,200,000       2,840,000    SELECT /*+ NO_INDEX */ * FROM order_items i JOIN orders o ON o.id=i.order_id WHERE o.created_date BETWEEN '2024-01-01' AND '2024-03-31'
+d4e5f6g7h8i9j      480.2      84.2      48,203            0.01s           12,840             0    INSERT INTO audit_log VALUES (:1,:2,:3,:4,:5)
+e5f6g7h8i9j0k      284.1      48.2           1            284s        2,840,000         920,000    UPDATE orders SET status='PROCESSED', updated_at=SYSDATE
+
+MEMORY STATISTICS
+~~~~~~~~~~~~~~~~~
+SGA Target:              8,192 MB
+Buffer Cache:            5,120 MB   Advisory: +2GB gives 18% fewer physical reads  << UNDERSIZED
+Shared Pool:             1,536 MB   Library cache hit: 94.2% — borderline
+Large Pool:                256 MB
+PGA Aggregate Target:    2,048 MB
+  % PGA targets honoured:  82.4%   << BELOW 90% — PGA undersized
+  One-pass sorts:           4.2%
+  Multi-pass sorts:         1.8%   << CRITICAL — PGA spill to TEMP
+
+TABLESPACE I/O
+~~~~~~~~~~~~~~
+Tablespace         Reads     Writes    Avg Rd (ms)   Avg Wr (ms)
+USERS            842,293    142,840       28.4           4.2      << 28ms avg read — HIGH
+TEMP              84,293     84,293       12.4          11.8      << heavy TEMP I/O — PGA spill
+UNDO              42,840      8,420        4.2           2.1
+INDX              18,420        284        8.4           1.2
+SYSAUX               284        142        2.1           1.8

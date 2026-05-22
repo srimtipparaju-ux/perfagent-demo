@@ -1,0 +1,114 @@
+=== Kubernetes Diagnostic Output ===
+Namespace: production
+Cluster: prod-us-east-1
+Captured: 2024-03-15 14:25:00
+
+────────────────────────────────────────────────────────────
+$ kubectl get pods -n production -l app=order-service
+NAME                              READY   STATUS             RESTARTS      AGE     IP             NODE
+order-service-7d9c8b6f5-2xkpq    0/1     CrashLoopBackOff   12 (2m ago)   48m     10.42.3.18    node-prod-04
+order-service-7d9c8b6f5-7lqv4    0/1     CrashLoopBackOff   11 (3m ago)   48m     10.42.1.92    node-prod-02
+order-service-7d9c8b6f5-9hgxn    0/1     OOMKilled          8 (47s ago)   48m     10.42.4.21    node-prod-05
+order-service-7d9c8b6f5-bzc8d    1/1     Running            3 (12m ago)   48m     10.42.2.55    node-prod-03
+order-service-7d9c8b6f5-mfp2j    0/1     CrashLoopBackOff   14 (1m ago)   48m     10.42.3.41    node-prod-04
+
+────────────────────────────────────────────────────────────
+$ kubectl describe pod order-service-7d9c8b6f5-9hgxn -n production
+
+Name:         order-service-7d9c8b6f5-9hgxn
+Namespace:    production
+Priority:     0
+Node:         node-prod-05/10.0.4.21
+Start Time:   Fri, 15 Mar 2024 13:37:12 +0000
+Status:       Running
+IP:           10.42.4.21
+
+Containers:
+  order-service:
+    Image:          registry.example.com/order-service:v2.8.4
+    Port:           8080/TCP
+    State:          Waiting
+      Reason:       CrashLoopBackOff
+    Last State:     Terminated
+      Reason:       OOMKilled                                         << CRITICAL
+      Exit Code:    137
+      Started:      Fri, 15 Mar 2024 14:24:15 +0000
+      Finished:     Fri, 15 Mar 2024 14:24:58 +0000
+    Ready:          False
+    Restart Count:  8
+    Limits:
+      cpu:     1000m
+      memory:  2Gi                                                    << TOO LOW for current workload
+    Requests:
+      cpu:     500m
+      memory:  1Gi
+    Liveness:    http-get http://:8080/health delay=30s timeout=3s period=10s #success=1 #failure=3
+    Readiness:   http-get http://:8080/ready  delay=10s timeout=3s period=5s  #success=1 #failure=3
+    Environment:
+      JAVA_OPTS:  -Xmx1800m -Xms1800m                                << JVM heap = 90% of container limit, no headroom
+      DB_HOST:    prod-db.cluster.local
+    Mounts:
+      /var/log from logs-volume (rw)
+
+Conditions:
+  Type              Status
+  Initialized       True
+  Ready             False
+  ContainersReady   False
+  PodScheduled      True
+
+Events:
+  Type     Reason     Age                From       Message
+  ----     ------     ----               ----       -------
+  Normal   Scheduled  48m                scheduler  Successfully assigned production/order-service-7d9c8b6f5-9hgxn to node-prod-05
+  Normal   Pulled     48m                kubelet    Container image already present on machine
+  Normal   Created    48m                kubelet    Created container order-service
+  Normal   Started    48m                kubelet    Started container order-service
+  Warning  Unhealthy  46m (x3 over 47m)  kubelet    Liveness probe failed: HTTP 503
+  Warning  BackOff    44m                kubelet    Back-off restarting failed container
+  Warning  OOMKilled  37m                kubelet    Container order-service was OOMKilled (exit code 137)
+  Warning  BackOff    36m                kubelet    Back-off restarting failed container
+  Warning  OOMKilled  28m                kubelet    Container order-service was OOMKilled (exit code 137)
+  Warning  OOMKilled  18m                kubelet    Container order-service was OOMKilled (exit code 137)
+  Warning  OOMKilled  8m                 kubelet    Container order-service was OOMKilled (exit code 137)
+  Warning  OOMKilled  47s                kubelet    Container order-service was OOMKilled (exit code 137)
+  Warning  BackOff    12s (x3 over 30s)  kubelet    Back-off restarting failed container
+
+────────────────────────────────────────────────────────────
+$ kubectl top pods -n production -l app=order-service
+NAME                              CPU(cores)   MEMORY(bytes)
+order-service-7d9c8b6f5-bzc8d    420m         1924Mi               << 94% of 2Gi limit before OOM
+order-service-7d9c8b6f5-2xkpq    --           --                   (crashloop)
+order-service-7d9c8b6f5-7lqv4    --           --                   (crashloop)
+
+────────────────────────────────────────────────────────────
+$ kubectl get hpa order-service-hpa -n production
+NAME                REFERENCE                  TARGETS              MINPODS   MAXPODS   REPLICAS   AGE
+order-service-hpa   Deployment/order-service   <unknown>/70%, 95%/80%   3         10        5          48m
+
+Note: CPU target shows <unknown> — metrics-server is failing to return CPU for crashlooping pods.
+HPA cannot scale up because it needs healthy pods to measure baseline.
+
+────────────────────────────────────────────────────────────
+$ kubectl logs order-service-7d9c8b6f5-9hgxn -n production --previous --tail=30
+
+2024-03-15 14:23:45 INFO  [main] OrderApplication - Starting OrderApplication on order-service-7d9c8b6f5-9hgxn
+2024-03-15 14:23:48 INFO  [main] CacheWarmupService - Starting cache warmup
+2024-03-15 14:24:12 INFO  [main] CacheWarmupService - Loaded 4,820,293 OrderSummary objects into LocalOrderCache
+2024-03-15 14:24:15 WARN  [http-nio-8080-exec-3] HikariPool - Connection pool starting to fill (15/20 active)
+2024-03-15 14:24:48 WARN  [http-nio-8080-exec-7] HikariPool - Pool nearly exhausted (19/20 active, 8 waiting)
+2024-03-15 14:24:55 ERROR [http-nio-8080-exec-3] OrderController - java.lang.OutOfMemoryError: Java heap space
+2024-03-15 14:24:55 ERROR [Thread-2] CacheWarmupService - OOM during cache extension
+2024-03-15 14:24:56 ERROR [http-nio-8080-exec-7] OrderController - Heap dump on OOM:
+        at com.example.cache.LocalOrderCache.put(LocalOrderCache.java:67)
+        at com.example.service.CacheWarmupService.warmup(CacheWarmupService.java:134)
+2024-03-15 14:24:58 INFO  [SpringContextShutdownHook] AnnotationConfigApplicationContext - Closing
+[Pod terminated by kubelet: OOMKilled (exit code 137)]
+
+────────────────────────────────────────────────────────────
+SUMMARY OF FINDINGS:
+- 4 of 5 pods in CrashLoopBackOff / OOMKilled state
+- Memory limit (2Gi) insufficient for current cache warmup (4.8M objects = 5.3GB heap usage)
+- JAVA_OPTS Xmx=1800m is 90% of container limit — no headroom for off-heap, metaspace, threads
+- HPA cannot autoscale because metrics-server has no healthy pods to baseline
+- Service unavailable to upstream traffic — 504s cascading to gateway

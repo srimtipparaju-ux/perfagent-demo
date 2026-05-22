@@ -1,0 +1,63 @@
+Full thread dump Java HotSpot(TM) 64-Bit Server VM (25.333-b02 mixed mode):
+
+Found one Java-level deadlock:
+=============================
+"http-nio-8080-exec-3":
+  waiting to lock monitor 0x00007f8a2c003a98 (object 0x00000000f1a2b340, a com.example.OrderService),
+  which is held by "http-nio-8080-exec-7"
+"http-nio-8080-exec-7":
+  waiting to lock monitor 0x00007f8a2c003b10 (object 0x00000000f1a2b3a0, a com.example.InventoryService),
+  which is held by "http-nio-8080-exec-3"
+
+Java stack information for threads listed above:
+===================================================
+"http-nio-8080-exec-3":
+  at com.example.service.OrderService.reserveInventory(OrderService.java:142)
+  - waiting to lock <0x00000000f1a2b340> (a com.example.OrderService)
+  at com.example.service.OrderService.processOrder(OrderService.java:89)
+  - locked <0x00000000f1a2b3a0> (a com.example.InventoryService)
+  at com.example.controller.OrderController.submit(OrderController.java:45)
+
+"http-nio-8080-exec-7":
+  at com.example.service.InventoryService.checkAvailability(InventoryService.java:112)
+  - waiting to lock <0x00000000f1a2b3a0> (a com.example.InventoryService)
+  at com.example.service.InventoryService.updateStock(InventoryService.java:78)
+  - locked <0x00000000f1a2b340> (a com.example.OrderService)
+  at com.example.controller.InventoryController.update(InventoryController.java:67)
+
+"http-nio-8080-exec-1" #28 daemon prio=5 os_prio=0 tid=0x00007f8a nid=0x1a2b waiting for monitor entry
+   java.lang.Thread.State: BLOCKED (on object monitor)
+   at com.example.service.OrderService.processOrder(OrderService.java:89)
+   - waiting to lock <0x00000000f1a2b340>
+   at com.example.controller.OrderController.submit(OrderController.java:45)
+
+"http-nio-8080-exec-2" #29 daemon prio=5 os_prio=0 nid=0x1a2c waiting for monitor entry
+   java.lang.Thread.State: BLOCKED (on object monitor)
+   at com.example.service.OrderService.processOrder(OrderService.java:89)
+   - waiting to lock <0x00000000f1a2b340>
+
+"http-nio-8080-exec-4" #31 daemon prio=5 os_prio=0 nid=0x1a2e waiting for monitor entry
+   java.lang.Thread.State: BLOCKED (on object monitor)
+   at com.example.service.OrderService.processOrder(OrderService.java:89)
+   - waiting to lock <0x00000000f1a2b340>
+
+"db-pool-1" #12 prio=5 os_prio=0 tid=0x00007f8a1c001800 nid=0x1a10 runnable
+   java.lang.Thread.State: RUNNABLE
+   at java.net.SocketInputStream.socketRead0(Native Method)
+   at oracle.jdbc.driver.T4CSocketInputStreamWrapper.read(T4CSocketInputStreamWrapper.java:74)
+   at com.zaxxer.hikari.pool.ProxyPreparedStatement.executeQuery(ProxyPreparedStatement.java:52)
+   at com.example.dao.OrderDAO.findPendingOrders(OrderDAO.java:234)
+   - locked <0x00000000f1a9c340> (a com.zaxxer.hikari.pool.HikariProxyConnection)
+
+"db-pool-2" #13 prio=5 os_prio=0 nid=0x1a11 runnable
+   java.lang.Thread.State: RUNNABLE
+   at java.net.SocketInputStream.socketRead0(Native Method)
+   at oracle.jdbc.driver.T4CSocketInputStreamWrapper.read(T4CSocketInputStreamWrapper.java:74)
+   at com.example.dao.CustomerDAO.findActive(CustomerDAO.java:89)
+
+"GC task thread#0 (ParallelGC)" os_prio=0 tid=0x00007f8a prio=9 nid=0x1a01 runnable
+"GC task thread#1 (ParallelGC)" os_prio=0 tid=0x00007f8b prio=9 nid=0x1a02 runnable
+"VM Thread" os_prio=0 tid=0x00007f8c nid=0x1a05 runnable
+
+Thread summary:
+Total: 218  |  RUNNABLE: 194  |  BLOCKED: 18  |  WAITING: 4  |  TIMED_WAITING: 2
