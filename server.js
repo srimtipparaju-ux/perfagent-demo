@@ -377,6 +377,40 @@ ${JSON.stringify(summaries, null, 2)}`
     return;
   }
 
+  // ── Run history (data engineering layer) ──────────────────
+  // Append-only JSON event log of completed analysis runs.
+  const RUNS_FILE = path.join(__dirname, 'runs.json');
+  function loadRuns() {
+    try { return JSON.parse(fs.readFileSync(RUNS_FILE, 'utf-8')); } catch { return []; }
+  }
+
+  // POST /runs  →  record a completed run
+  if (req.method === 'POST' && pathname === '/runs') {
+    let body = '';
+    req.on('data', ch => { body += ch; });
+    req.on('end', () => {
+      try {
+        const runs = loadRuns();
+        const record = { id: 'run-' + Date.now(), startedAt: new Date().toISOString(), ...JSON.parse(body) };
+        runs.push(record);
+        fs.writeFileSync(RUNS_FILE, JSON.stringify(runs, null, 2));
+        res.writeHead(201, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(record));
+      } catch (e) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+    });
+    return;
+  }
+
+  // GET /runs  →  full history (newest first)
+  if (req.method === 'GET' && pathname === '/runs') {
+    const runs = loadRuns().sort((a, b) => (b.startedAt || '').localeCompare(a.startedAt || ''));
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify(runs));
+  }
+
   // POST /chat  →  conversational follow-up over the incident
   if (req.method === 'POST' && pathname === '/chat') {
     let body = '';

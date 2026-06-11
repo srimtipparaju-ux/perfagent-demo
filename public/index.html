@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PerfAgent — AI Diagnostic Platform</title>
+<title>OpsMind — AI Diagnostic Platform</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -15,7 +15,7 @@
   --border2:  #252b3a;
   --text:     #dde2f0;
   --dim:      #4a5268;
-  --accent:   #4fffb0;
+  --accent:   #5eead4;
   --amber:    #ffb340;
   --red:      #ff4560;
   --orange:   #ff7040;
@@ -645,7 +645,7 @@ body::after {
 <div class="hdr">
   <div class="logo">
     <div class="logo-ring"></div>
-    PERF<span style="color:var(--dim)">AGENT</span>
+    OPSMIND<span style="color:var(--dim)"> · AI SRE COPILOT</span>
   </div>
   <div class="hdr-right">
     <div class="api-wrap">
@@ -737,11 +737,14 @@ body::after {
       <div class="tab" data-tab="chat" id="tabChat" onclick="switchTab(this)" style="display:none">
         💬 Chat
       </div>
+      <div class="tab" data-tab="runs" id="tabRuns" onclick="switchTab(this)">
+        📊 Runs
+      </div>
     </div>
 
     <div class="content" id="content">
       <div class="landing fade">
-        <div class="landing-title">PERF AGENT</div>
+        <div class="landing-title">OPSMIND</div>
         <div class="landing-sub">
           AI-powered performance diagnostics · 9 diagnostic skills · Cross-artifact incident correlation
         </div>
@@ -1273,6 +1276,8 @@ function switchTab(el) {
     else showContent('<div style="padding:40px;text-align:center;color:var(--dim);font-size:12px">Click ⚡ Correlate All in the sidebar to build the incident timeline.</div>');
   } else if (activeTab === 'chat') {
     renderChat();
+  } else if (activeTab === 'runs') {
+    renderRuns();
   } else if (activeFile && results[activeFile.path]) {
     renderCurrentResult();
   }
@@ -1547,6 +1552,7 @@ function escHtml(s) {
 // ════════════════════════════════════════════════════════════
 
 async function analyzeAllAndCorrelate() {
+  window.__runStart = Date.now();
   const apiKey = document.getElementById('apiKey').value.trim();
   if (!apiKey) { toast('Enter your API key first'); return; }
   if (files.length < 2) { toast('Scan or browse files first'); return; }
@@ -1708,6 +1714,9 @@ async function runCorrelation() {
     // Show chat tab now that we have an incident to talk about
     document.getElementById('tabChat').style.display = '';
 
+    // Record this run in the history dashboard
+    saveRunRecord();
+
     renderTimeline(incidentTimeline);
     renderFileList(); // refresh correlate button text
     toast(`⚡ Correlation complete — ${evtCount} timeline events`);
@@ -1746,6 +1755,128 @@ function showCorrelationLoading(count) {
 }
 
 // ── Render unified incident timeline ─────────────────────────
+// ── Run history dashboard ─────────────────────────────────────
+
+function hbar(label, value, max, color) {
+  const pct = max > 0 ? Math.round(value / max * 100) : 0;
+  return '<div style="display:flex;align-items:center;gap:10px;margin:6px 0">' +
+    '<div style="width:130px;font-family:var(--font-m);font-size:10px;color:var(--dim);text-align:right;flex-shrink:0">' + escHtml(label) + '</div>' +
+    '<div style="flex:1;height:14px;background:var(--s2);border-radius:3px;overflow:hidden">' +
+      '<div style="width:' + pct + '%;height:100%;background:' + color + ';border-radius:3px;transition:width 0.4s"></div>' +
+    '</div>' +
+    '<div style="width:36px;font-family:var(--font-m);font-size:11px;color:var(--text)">' + value + '</div>' +
+  '</div>';
+}
+
+async function renderRuns() {
+  showContent('<div style="padding:40px;text-align:center;color:var(--dim);font-size:12px">Loading run history...</div>');
+  let runs = [];
+  try {
+    const r = await fetch(SERVER + '/runs');
+    runs = await r.json();
+  } catch (e) { /* server may not support it */ }
+
+  if (!runs.length) {
+    showContent('<div style="padding:60px;text-align:center;color:var(--dim);font-size:12px">' +
+      'No runs recorded yet.<br><br>Run <b style="color:var(--accent)">Analyze All + Timeline</b> and the run will be saved here automatically.</div>');
+    return;
+  }
+
+  // Aggregations
+  const sevColors = { Critical:'var(--red)', High:'var(--orange)', Medium:'var(--amber)', Low:'var(--accent)', Info:'var(--dim)' };
+  const sevTotals = {}, skillTotals = {};
+  let totFindings = 0, totDuration = 0;
+  for (const r of runs) {
+    totFindings += r.findingsTotal || 0;
+    totDuration += r.durationMs || 0;
+    for (const k in (r.findingsBySeverity || {})) sevTotals[k] = (sevTotals[k]||0) + r.findingsBySeverity[k];
+    for (const k in (r.findingsBySkill || {}))    skillTotals[k] = (skillTotals[k]||0) + r.findingsBySkill[k];
+  }
+  const sevMax   = Math.max(1, ...Object.values(sevTotals));
+  const skillMax = Math.max(1, ...Object.values(skillTotals));
+
+  const cards = [
+    ['Total runs', runs.length],
+    ['Total findings', totFindings],
+    ['Avg duration', Math.round(totDuration / runs.length / 1000) + 's'],
+    ['Critical findings', sevTotals.Critical || 0],
+  ].map(([l, v]) =>
+    '<div style="flex:1;min-width:140px;background:var(--s2);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px">' +
+      '<div style="font-family:var(--font-m);font-size:22px;color:var(--accent)">' + v + '</div>' +
+      '<div style="font-size:10px;color:var(--dim);margin-top:4px">' + l + '</div>' +
+    '</div>'
+  ).join('');
+
+  const sevBars = ['Critical','High','Medium','Low','Info']
+    .filter(s => sevTotals[s])
+    .map(s => hbar(s, sevTotals[s], sevMax, sevColors[s])).join('');
+
+  const skillBars = Object.entries(skillTotals)
+    .sort((a,b) => b[1]-a[1])
+    .map(([s, v]) => hbar((SKILL_META[s] ? SKILL_META[s].label : s), v, skillMax, (SKILL_META[s] ? SKILL_META[s].color : 'var(--accent)')))
+    .join('');
+
+  const rows = runs.slice(0, 20).map(r =>
+    '<tr style="border-top:1px solid var(--border)">' +
+      '<td style="padding:8px 10px;font-family:var(--font-m);font-size:10px;color:var(--dim)">' + escHtml((r.startedAt||'').replace('T',' ').slice(0,19)) + '</td>' +
+      '<td style="padding:8px 10px;font-size:11px;color:var(--text)">' + (r.fileCount||0) + ' files</td>' +
+      '<td style="padding:8px 10px"><span style="font-family:var(--font-m);font-size:10px;color:' + (sevColors[r.overallSeverity]||'var(--dim)') + '">' + escHtml(r.overallSeverity||'-') + '</span></td>' +
+      '<td style="padding:8px 10px;font-size:11px;color:var(--text)">' + (r.findingsTotal||0) + '</td>' +
+      '<td style="padding:8px 10px;font-size:10px;color:var(--dim);max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(r.rootCause||'-') + '</td>' +
+    '</tr>'
+  ).join('');
+
+  showContent(
+    '<div style="padding:20px">' +
+      '<div style="font-family:var(--font-m);font-size:12px;color:var(--accent);letter-spacing:1px;margin-bottom:14px">📊 RUN HISTORY — ' + runs.length + ' RECORDED RUNS</div>' +
+      '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:22px">' + cards + '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px">' +
+        '<div><div style="font-family:var(--font-m);font-size:10px;color:var(--dim);letter-spacing:1px;margin-bottom:8px">FINDINGS BY SEVERITY</div>' + sevBars + '</div>' +
+        '<div><div style="font-family:var(--font-m);font-size:10px;color:var(--dim);letter-spacing:1px;margin-bottom:8px">FINDINGS BY SKILL</div>' + skillBars + '</div>' +
+      '</div>' +
+      '<div style="font-family:var(--font-m);font-size:10px;color:var(--dim);letter-spacing:1px;margin-bottom:8px">RECENT RUNS</div>' +
+      '<table style="width:100%;border-collapse:collapse;background:var(--s2);border:1px solid var(--border);border-radius:var(--r)">' +
+        '<tr><th style="padding:8px 10px;text-align:left;font-family:var(--font-m);font-size:9px;color:var(--dim)">TIME</th>' +
+        '<th style="padding:8px 10px;text-align:left;font-family:var(--font-m);font-size:9px;color:var(--dim)">FILES</th>' +
+        '<th style="padding:8px 10px;text-align:left;font-family:var(--font-m);font-size:9px;color:var(--dim)">SEVERITY</th>' +
+        '<th style="padding:8px 10px;text-align:left;font-family:var(--font-m);font-size:9px;color:var(--dim)">FINDINGS</th>' +
+        '<th style="padding:8px 10px;text-align:left;font-family:var(--font-m);font-size:9px;color:var(--dim)">ROOT CAUSE</th></tr>' +
+        rows +
+      '</table>' +
+    '</div>'
+  );
+}
+
+async function saveRunRecord() {
+  try {
+    const findingsBySeverity = {}, findingsBySkill = {};
+    let findingsTotal = 0;
+    const fileList = [];
+    for (const [p, r] of Object.entries(results)) {
+      const fname = p.split(/[\\/]/).pop();
+      const skill = (files.find(f => f.path === p) || {}).skill || 'unknown';
+      fileList.push({ name: fname, skill });
+      for (const f of (r.findings || [])) {
+        findingsTotal++;
+        findingsBySeverity[f.severity] = (findingsBySeverity[f.severity]||0) + 1;
+        findingsBySkill[skill] = (findingsBySkill[skill]||0) + 1;
+      }
+    }
+    await fetch(SERVER + '/runs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        durationMs: Date.now() - (window.__runStart || Date.now()),
+        fileCount: fileList.length,
+        files: fileList,
+        overallSeverity: incidentTimeline && incidentTimeline.overallSeverity || 'Info',
+        rootCause: incidentTimeline && incidentTimeline.rootCause || '',
+        findingsTotal, findingsBySeverity, findingsBySkill,
+      }),
+    });
+  } catch (e) { /* non-fatal */ }
+}
+
 // ── Chat state ────────────────────────────────────────────────
 let chatHistory = [];
 let chatSessionId = null;
